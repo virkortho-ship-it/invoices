@@ -5,7 +5,9 @@ import {
   InvoiceData, 
   DriveFolder, 
   InvoiceItem, 
-  InvoiceStatus 
+  InvoiceStatus,
+  SavedCustomer,
+  BusinessDetails 
 } from '../types';
 import { DEFAULT_TEMPLATES } from '../data/defaultTemplates';
 import { INITIAL_SEED_INVOICES } from '../data/seedInvoices';
@@ -60,6 +62,12 @@ interface AppContextType {
   updateInvoiceStatus: (invoiceId: string, status: InvoiceStatus) => void;
   duplicateInvoice: (invoiceId: string) => void;
   createNewInvoiceFromTemplate: (template?: InvoiceTemplate) => void;
+  // Business profile & saved customers
+  businessProfile: BusinessDetails;
+  saveBusinessProfile: (profile: BusinessDetails) => void;
+  customers: SavedCustomer[];
+  saveCustomer: (customer: SavedCustomer) => void;
+  deleteCustomer: (customerId: string) => void;
   
   // Google Drive
   driveFolders: DriveFolder[];
@@ -82,6 +90,18 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const TEMPLATES_STORAGE_KEY = 'invoicemaker_custom_templates_v1';
 const INVOICES_STORAGE_KEY = 'invoicemaker_saved_invoices_v1';
 const DRIVE_FOLDER_STORAGE_KEY = 'invoicemaker_selected_drive_folder_v1';
+const BUSINESS_PROFILE_STORAGE_KEY = 'invoicemaker_business_profile_v1';
+const CUSTOMERS_STORAGE_KEY = 'invoicemaker_customers_v1';
+
+const readStoredBusinessProfile = (fallback: BusinessDetails): BusinessDetails => {
+  try {
+    const stored = localStorage.getItem(BUSINESS_PROFILE_STORAGE_KEY);
+    if (stored) return { ...fallback, ...JSON.parse(stored) };
+  } catch (e) {
+    console.warn('Could not load saved business profile', e);
+  }
+  return fallback;
+};
 
 export function createBlankInvoice(template: InvoiceTemplate): InvoiceData {
   const invoiceNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -296,6 +316,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTemplateState(template);
   };
 
+  const [businessProfile, setBusinessProfile] = useState<BusinessDetails>(() =>
+    readStoredBusinessProfile(templates[0]?.businessDetails || DEFAULT_TEMPLATES[0].businessDetails)
+  );
+
+  const [customers, setCustomers] = useState<SavedCustomer[]>(() => {
+    try {
+      const stored = localStorage.getItem(CUSTOMERS_STORAGE_KEY);
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn('Could not load saved customers', e);
+      return [];
+    }
+  });
+
   // Invoices state
   const [invoices, setInvoices] = useState<InvoiceData[]>(() => {
     try {
@@ -317,8 +352,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Current active invoice in editor
   const [currentInvoice, setCurrentInvoice] = useState<InvoiceData>(() => {
-    return createBlankInvoice(templates[0] || DEFAULT_TEMPLATES[0]);
+    const tpl = templates[0] || DEFAULT_TEMPLATES[0];
+    const invoice = createBlankInvoice(tpl);
+    return { ...invoice, sender: readStoredBusinessProfile(invoice.sender) };
   });
+
+  const saveBusinessProfile = (profile: BusinessDetails) => {
+    const next = { ...profile };
+    setBusinessProfile(next);
+    try { localStorage.setItem(BUSINESS_PROFILE_STORAGE_KEY, JSON.stringify(next)); } catch (e) { console.error(e); }
+    setActiveTemplateState(prev => ({ ...prev, businessDetails: next, updatedAt: new Date().toISOString() }));
+    setCurrentInvoice(prev => ({ ...prev, sender: { ...next }, updatedAt: new Date().toISOString() }));
+    showToast('success', 'Business Profile Saved', 'Your details will auto-fill on new invoices.');
+  };
+
+  const saveCustomer = (customer: SavedCustomer) => {
+    setCustomers(prev => {
+      const exists = prev.some(c => c.id === customer.id);
+      return exists ? prev.map(c => c.id === customer.id ? customer : c) : [customer, ...prev];
+    });
+    showToast('success', 'Customer Saved', `${customer.name} is available for future invoices.`);
+  };
+
+  const deleteCustomer = (customerId: string) => {
+    setCustomers(prev => prev.filter(c => c.id !== customerId));
+  };
 
   // Google Drive state
   const [driveFolders, setDriveFolders] = useState<DriveFolder[]>([]);
@@ -343,6 +401,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isLoadingDriveFolders, setIsLoadingDriveFolders] = useState(false);
   const [isSyncingToDrive, setIsSyncingToDrive] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(customers)); } catch (e) { console.error(e); }
+  }, [customers]);
 
   // Sync templates to localStorage
   useEffect(() => {
@@ -596,6 +658,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createNewInvoiceFromTemplate = (template?: InvoiceTemplate) => {
     const tpl = template || activeTemplate || templates[0] || DEFAULT_TEMPLATES[0];
     const newInv = createBlankInvoice(tpl);
+    newInv.sender = { ...businessProfile };
+    newInv.recipient = {
+      name: '',
+      contactPerson: '',
+      email: '',
+      phone: '',
+      address: '',
+      cityStateZip: '',
+      taxNumber: '',
+      notes: '',
+    };
+    newInv.items = [];
+    newInv.subtotal = 0;
+    newInv.taxTotal = 0;
+    newInv.discountTotal = 0;
+    newInv.grandTotal = 0;
+    newInv.balanceDue = 0;
     setCurrentInvoice(newInv);
     setActiveTemplate(tpl);
     setActiveView('create');
@@ -695,6 +774,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateInvoiceStatus,
         duplicateInvoice,
         createNewInvoiceFromTemplate,
+        businessProfile,
+        saveBusinessProfile,
+        customers,
+        saveCustomer,
+        deleteCustomer,
         driveFolders,
         selectedDriveFolder,
         setSelectedDriveFolder,

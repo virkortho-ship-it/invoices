@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { InvoiceItem, InvoiceData } from '../types';
+import { InvoiceItem, InvoiceData, SavedCustomer, BusinessDetails } from '../types';
 import { InvoicePreview } from './InvoicePreview';
 import { generateInvoicePdfBlob, downloadPdfBlob } from '../services/pdfGenerator';
 import { 
@@ -21,7 +21,13 @@ import {
   Eye, 
   RefreshCw,
   Sparkles,
-  FilePlus2
+  FilePlus2,
+  Search,
+  UserPlus,
+  Upload,
+  X,
+  Building2,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export const InvoiceEditor: React.FC = () => {
@@ -39,12 +45,55 @@ export const InvoiceEditor: React.FC = () => {
     selectedDriveFolder,
     setActiveView,
     showToast,
-    createNewInvoiceFromTemplate
+    createNewInvoiceFromTemplate,
+    businessProfile,
+    saveBusinessProfile,
+    customers,
+    saveCustomer
   } = useApp();
 
   const [previewTab, setPreviewTab] = useState<'editor' | 'preview'>('editor');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [profileDraft, setProfileDraft] = useState<BusinessDetails>({ ...businessProfile });
+  const [newCustomer, setNewCustomer] = useState<SavedCustomer>({
+    id: '', name: '', contactPerson: '', email: '', phone: '', address: '', cityStateZip: '', taxNumber: '', notes: '', createdAt: '', updatedAt: ''
+  });
+
+  const filteredCustomers = customers.filter(c =>
+    `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(customerSearch.toLowerCase())
+  );
+
+  const applyCustomer = (customer: SavedCustomer) => {
+    updateInvoiceState(prev => ({ ...prev, recipient: {
+      name: customer.name, contactPerson: customer.contactPerson || '', email: customer.email, phone: customer.phone,
+      address: customer.address, cityStateZip: customer.cityStateZip || '', taxNumber: customer.taxNumber || '', notes: customer.notes || ''
+    }}));
+    setCustomerSearch(customer.name);
+    setShowCustomerForm(false);
+    showToast('success', 'Customer Selected', `${customer.name} details filled into the invoice.`);
+  };
+
+  const handleSaveProfile = () => {
+    saveBusinessProfile(profileDraft);
+    setShowProfileEditor(false);
+  };
+
+  const handleSaveNewCustomer = () => {
+    if (!newCustomer.name.trim()) {
+      showToast('warning', 'Customer Name Required', 'Enter a customer name before saving.');
+      return;
+    }
+    const now = new Date().toISOString();
+    const saved = { ...newCustomer, id: newCustomer.id || `cust-${Date.now()}`, createdAt: newCustomer.createdAt || now, updatedAt: now };
+    saveCustomer(saved);
+    applyCustomer(saved);
+    setNewCustomer({ id: '', name: '', contactPerson: '', email: '', phone: '', address: '', cityStateZip: '', taxNumber: '', notes: '', createdAt: '', updatedAt: '' });
+  };
+
 
   // Recalculate totals whenever items or charges change
   const updateInvoiceState = (updater: (prev: InvoiceData) => InvoiceData) => {
@@ -354,6 +403,31 @@ export const InvoiceEditor: React.FC = () => {
         {/* LEFT COLUMN: INVOICE FORM (6 cols on Desktop) */}
         <div className={`lg:col-span-6 space-y-6 ${previewTab === 'preview' ? 'hidden lg:block' : 'block'}`}>
           
+          {/* Business Profile */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2"><Building2 className="w-4 h-4 text-indigo-600" /> Business Profile</h2>
+                <p className="text-[11px] text-slate-500 mt-1">Saved details automatically appear on new invoices.</p>
+              </div>
+              <button onClick={() => { setProfileDraft({ ...businessProfile }); setShowProfileEditor(v => !v); }} className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold">{showProfileEditor ? 'Close' : 'Edit Profile'}</button>
+            </div>
+            {!showProfileEditor ? (
+              <div className="mt-4 flex items-center gap-4">
+                {businessProfile.logoUrl ? <img src={businessProfile.logoUrl} alt="Business logo" className="w-14 h-14 object-contain rounded-lg border border-slate-200 bg-white" /> : <div className="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center"><ImageIcon className="w-5 h-5 text-slate-400" /></div>}
+                <div className="min-w-0"><div className="font-bold text-sm truncate">{businessProfile.companyName || 'Your Company'}</div><div className="text-[11px] text-slate-500 truncate">{businessProfile.email || 'Add email'} · {businessProfile.phone || 'Add phone'}</div><div className="text-[11px] text-slate-500 truncate">{businessProfile.address || 'Add business address'}</div></div>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {([['companyName','Company Name'],['contactPerson','Contact Person'],['email','Email'],['phone','Phone'],['address','Address'],['cityStateZip','City / State / ZIP'],['taxNumber','Tax / GST / NTN'],['website','Website']] as const).map(([key,label]) => (
+                  <div key={key}><label className="block text-xs font-semibold text-slate-700 mb-1">{label}</label><input type="text" value={(profileDraft as any)[key] || ''} onChange={e => setProfileDraft(prev => ({ ...prev, [key]: e.target.value }))} className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" /></div>
+                ))}
+                <div className="sm:col-span-2"><label className="block text-xs font-semibold text-slate-700 mb-1">Business Logo</label><div className="flex items-center gap-3"><label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-semibold cursor-pointer"><Upload className="w-4 h-4" /> Upload Logo<input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setProfileDraft(prev=>({ ...prev, logoUrl: String(r.result) })); r.readAsDataURL(f); }} /></label>{profileDraft.logoUrl && <img src={profileDraft.logoUrl} alt="Preview" className="h-10 w-20 object-contain border border-slate-200 rounded" />} </div></div>
+                <div className="sm:col-span-2 flex justify-end"><button onClick={handleSaveProfile} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">Save Business Profile</button></div>
+              </div>
+            )}
+          </div>
+
           {/* Section 1: Header Meta (Invoice #, Dates, Status) */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -443,6 +517,23 @@ export const InvoiceEditor: React.FC = () => {
                 <span>Client / Patient / Recipient Details</span>
               </span>
             </h2>
+
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-2 mb-2"><label className="text-xs font-bold text-slate-800">Search Customer</label><button type="button" onClick={() => setShowCustomerForm(v => !v)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold"><UserPlus className="w-3.5 h-3.5" /> New Customer</button></div>
+              <div className="relative"><Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" /><input value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} placeholder="Search saved customer..." className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-xs" /></div>
+              {customerSearch && filteredCustomers.length > 0 && <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white">{filteredCustomers.map(c => <button key={c.id} type="button" onClick={() => applyCustomer(c)} className="w-full text-left px-3 py-2 hover:bg-indigo-50 border-b last:border-0 border-slate-100"><div className="text-xs font-bold">{c.name}</div><div className="text-[10px] text-slate-500">{c.email || c.phone || c.address}</div></button>)}</div>}
+              {customerSearch && filteredCustomers.length === 0 && <p className="mt-2 text-[11px] text-slate-500">No saved customer found. Click <b>New Customer</b> to add one.</p>}
+            </div>
+
+            {showCustomerForm && (
+              <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+                <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-bold text-slate-900">Add New Customer</h3><button onClick={() => setShowCustomerForm(false)}><X className="w-4 h-4 text-slate-500" /></button></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {([['name','Name *'],['contactPerson','Contact Person'],['phone','Phone'],['email','Email'],['address','Address'],['cityStateZip','City / State / ZIP'],['taxNumber','Tax / GST']] as const).map(([key,label]) => <div key={key}><label className="block text-[11px] font-semibold text-slate-700 mb-1">{label}</label><input type="text" value={(newCustomer as any)[key] || ''} onChange={e => setNewCustomer(prev => ({ ...prev, [key]: e.target.value }))} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" /></div>)}
+                </div>
+                <div className="mt-3 flex justify-end"><button onClick={handleSaveNewCustomer} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">Save & Use Customer</button></div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
