@@ -1,73 +1,170 @@
-import React, { useMemo, useState } from 'react';
-import { useApp, createBlankInvoice } from '../context/AppContext';
+import React, { useRef, useState } from 'react';
+import { useApp } from '../context/AppContext';
 import { InvoiceTemplate } from '../types';
-import { InvoicePreview } from './InvoicePreview';
-import { Plus, Copy, Trash2, Eye, Edit3, Palette, Type, Image as ImageIcon, Table2, DollarSign, CalendarDays, UserRound, Save, X, Move, Minus, RotateCcw, RotateCw } from 'lucide-react';
+import { Copy, Trash2, Eye, Edit3, Plus, Upload, Save, X, Undo2, Redo2, Bold, Italic, Underline, Merge, Image as ImageIcon, Grid3X3, Type, Minus, Check } from 'lucide-react';
 
-type ElementKind = 'text'|'logo'|'company'|'items'|'total'|'date'|'customer'|'line';
-type CanvasElement = { id:string; kind:ElementKind; label:string; value?:string; x:number; y:number; w:number; h:number; fontSize:number; fontFamily:string; color:string; background:string; bold:boolean; align:'left'|'center'|'right' };
+type Cell = { value: string; bold?: boolean; italic?: boolean; underline?: boolean; fontSize?: number; color?: string; background?: string; align?: 'left'|'center'|'right'; vertical?: 'top'|'middle'|'bottom'; border?: boolean; colSpan?: number };
+type Sheet = Cell[][];
 
-const starterElements = (): CanvasElement[] => [
- {id:'logo',kind:'logo',label:'LOGO',x:30,y:28,w:100,h:55,fontSize:20,fontFamily:'Arial',color:'#1d4ed8',background:'#eef6ff',bold:true,align:'center'},
- {id:'company',kind:'text',label:'COMPANY NAME',x:150,y:30,w:260,h:45,fontSize:25,fontFamily:'Arial',color:'#123b68',background:'transparent',bold:true,align:'left'},
- {id:'invoice',kind:'text',label:'INVOICE',x:510,y:30,w:160,h:45,fontSize:27,fontFamily:'Arial',color:'#123b68',background:'transparent',bold:true,align:'right'},
- {id:'customer',kind:'customer',label:'BILL TO: Customer Name',x:30,y:105,w:310,h:70,fontSize:14,fontFamily:'Arial',color:'#334155',background:'#f8fafc',bold:false,align:'left'},
- {id:'date',kind:'date',label:'Invoice No. / Date / Due Date',x:440,y:105,w:230,h:70,fontSize:12,fontFamily:'Arial',color:'#334155',background:'#f8fafc',bold:false,align:'right'},
- {id:'items',kind:'items',label:'ITEMS TABLE',x:30,y:200,w:640,h:245,fontSize:12,fontFamily:'Arial',color:'#172033',background:'#ffffff',bold:false,align:'left'},
- {id:'total',kind:'total',label:'TOTAL: {{grandTotal}}',x:450,y:470,w:220,h:65,fontSize:18,fontFamily:'Arial',color:'#ffffff',background:'#1264a6',bold:true,align:'right'},
- {id:'footer',kind:'text',label:'Thank you for your business!',x:30,y:555,w:380,h:35,fontSize:13,fontFamily:'Arial',color:'#64748b',background:'transparent',bold:false,align:'left'},
- {id:'line',kind:'line',label:'',x:30,y:595,w:640,h:3,fontSize:1,fontFamily:'Arial',color:'#1264a6',background:'#1264a6',bold:false,align:'left'}
-];
+const COLS = 8;
+const ROWS = 24;
+const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-const palettes=['#2563eb','#0284c7','#059669','#4f46e5','#7c3aed','#dc2626','#d97706','#0f172a'];
-const fonts=['Arial','Georgia','Verdana','Courier New','Trebuchet MS'];
+const blankCell = (): Cell => ({ value:'', fontSize:12, color:'#172033', background:'#ffffff', align:'left', vertical:'middle', border:true });
+const makeSheet = (): Sheet => Array.from({length:ROWS},()=>Array.from({length:COLS},blankCell));
 
-function esc(s:string){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function elementsToHtml(elements:CanvasElement[], color:string){
- const blocks=elements.map(e=>{
-  const base=`position:absolute;left:${e.x}px;top:${e.y}px;width:${e.w}px;height:${e.h}px;font-family:${e.fontFamily};font-size:${e.fontSize}px;color:${e.color};background:${e.background};font-weight:${e.bold?700:400};text-align:${e.align};display:flex;align-items:center;justify-content:${e.align==='left'?'flex-start':e.align==='center'?'center':'flex-end'};padding:6px;overflow:hidden;`;
-  if(e.kind==='logo') return `<div style="${base}border:1px dashed #94a3b8;border-radius:8px">{{logo}}</div>`;
-  if(e.kind==='company') return `<div style="${base}">{{companyName}}</div>`;
-  if(e.kind==='customer') return `<div style="${base}white-space:pre-line">BILL TO:\n{{clientName}}\n{{clientPhone}}\n{{clientEmail}}</div>`;
-  if(e.kind==='date') return `<div style="${base}white-space:pre-line">Invoice: {{invoiceNumber}}\nDate: {{date}}\nDue: {{dueDate}}</div>`;
-  if(e.kind==='items') return `<div style="${base};display:block;padding:0">{{itemsTable}}</div>`;
-  if(e.kind==='total') return `<div style="${base}border-radius:8px">TOTAL: {{grandTotal}}</div>`;
-  if(e.kind==='line') return `<div style="${base}padding:0;background:${color}"></div>`;
-  return `<div style="${base}">${esc(e.label)}</div>`;
- }).join('');
- return `<div style="position:relative;width:700px;min-height:620px;background:#fff;padding:0;overflow:hidden"><style>*{box-sizing:border-box}body{margin:0}.invoice-items-table th{background:${color};color:#fff;padding:8px}.invoice-items-table td{padding:7px;border:1px solid #dbe2ea}</style>${blocks}</div>`;
+function starterSheet(): Sheet {
+  const s = makeSheet();
+  const put=(r:number,c:number,v:string,patch:Partial<Cell>={})=>{s[r][c]={...s[r][c],value:v,...patch}};
+  put(1,0,'VIRK ORTHO',{bold:true,fontSize:24,color:'#0b4f8a',background:'#eaf4ff'});
+  put(1,1,'ORTHOPEDIC IMPLANTS & INSTRUMENTS',{bold:true,fontSize:14,color:'#123b68',background:'#eaf4ff'});
+  put(1,6,'INVOICE',{bold:true,fontSize:24,color:'#123b68',align:'center',background:'#eaf4ff'});
+  put(3,0,'BILL TO',{bold:true,fontSize:12,color:'#ffffff',background:'#1264a6'});
+  put(3,4,'INVOICE DETAILS',{bold:true,fontSize:12,color:'#ffffff',background:'#1264a6'});
+  put(4,0,'Customer:'); put(4,1,'{{clientName}}'); put(4,4,'Invoice No:'); put(4,5,'{{invoiceNumber}}');
+  put(5,0,'Phone:'); put(5,1,'{{clientPhone}}'); put(5,4,'Date:'); put(5,5,'{{date}}');
+  put(6,0,'Email:'); put(6,1,'{{clientEmail}}'); put(6,4,'Due Date:'); put(6,5,'{{dueDate}}');
+  put(7,0,'Address:'); put(7,1,'{{clientAddress}}');
+  ['#','Item / Description','Qty','Rate','Disc %','Tax %','Amount',''].forEach((v,c)=>put(9,c,v,{bold:true,color:'#ffffff',background:'#0b3768',align:'center'}));
+  put(10,0,'1'); put(10,1,'Orthopedic product / service'); put(10,2,'1'); put(10,3,'{{subtotal}}'); put(10,4,'0'); put(10,5,'0'); put(10,6,'{{grandTotal}}');
+  put(11,0,'2'); put(12,0,'3');
+  put(15,4,'SUBTOTAL',{bold:true}); put(15,6,'{{subtotal}}',{bold:true,align:'right'});
+  put(16,4,'DISCOUNT',{bold:true}); put(16,6,'{{discountTotal}}',{align:'right'});
+  put(17,4,'TAX',{bold:true}); put(17,6,'{{taxTotal}}',{align:'right'});
+  put(18,4,'SHIPPING',{bold:true}); put(18,6,'{{shippingFee}}',{align:'right'});
+  put(19,4,'GRAND TOTAL',{bold:true,color:'#ffffff',background:'#1264a6'}); put(19,6,'{{grandTotal}}',{bold:true,color:'#ffffff',background:'#1264a6',align:'right'});
+  put(21,0,'PAYMENT / NOTES',{bold:true,color:'#ffffff',background:'#1264a6'}); put(22,0,'{{paymentDetails}}'); put(23,0,'{{notes}}');
+  return s;
 }
 
+function cloneSheet(s:Sheet):Sheet { return s.map(r=>r.map(c=>({...c}))); }
+function escapeHtml(v:string){return v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function sheetToHtml(sheet:Sheet, title:string){
+  const rows=sheet.map(row=>`<tr>${row.map(cell=>`<td${cell.colSpan&&cell.colSpan>1?` colspan="${cell.colSpan}"`:''} style="font-size:${cell.fontSize}px;color:${cell.color};background:${cell.background};font-weight:${cell.bold?700:400};font-style:${cell.italic?'italic':'normal'};text-decoration:${cell.underline?'underline':'none'};text-align:${cell.align};vertical-align:${cell.vertical||'middle'};border:${cell.border===false?'none':'1px solid #d6dee8'};padding:6px;min-height:24px">${cell.value ? escapeHtml(cell.value).replace(/\n/g,'<br/>') : '&nbsp;'}</td>`).join('')}</tr>`).join('');
+  return `<div style="width:100%;background:#fff;padding:18px;box-sizing:border-box;font-family:Arial,sans-serif"><div style="font-size:10px;color:#64748b;margin-bottom:8px">${escapeHtml(title)}</div><table style="width:100%;border-collapse:collapse;table-layout:fixed"><tbody>${rows}</tbody></table></div>`;
+}
+
+const tokens=[
+  ['Customer Name','{{clientName}}'],['Invoice Number','{{invoiceNumber}}'],['Date','{{date}}'],['Due Date','{{dueDate}}'],
+  ['Phone','{{clientPhone}}'],['Email','{{clientEmail}}'],['Address','{{clientAddress}}'],['Company','{{companyName}}'],
+  ['Items Table','{{itemsTable}}'],['Subtotal','{{subtotal}}'],['Discount','{{discountTotal}}'],['Tax','{{taxTotal}}'],['Shipping','{{shippingFee}}'],['Grand Total','{{grandTotal}}'],
+  ['Payment Details','{{paymentDetails}}'],['Notes','{{notes}}']
+];
+
 export const TemplateManager: React.FC = () => {
- const {templates,activeTemplate,setActiveTemplate,saveTemplate,deleteTemplate,duplicateTemplate,showToast}=useApp();
- const [selected,setSelected]=useState<InvoiceTemplate>(activeTemplate||templates[0]);
- const [mode,setMode]=useState<'view'|'edit'|null>(null);
- const [elements,setElements]=useState<CanvasElement[]>(starterElements());
- const [selectedId,setSelectedId]=useState<string>('company');
- const [history,setHistory]=useState<CanvasElement[][]>([]); const [future,setFuture]=useState<CanvasElement[][]>([]);
- const [color,setColor]=useState(selected?.styling.themeColor||'#2563eb');
- const [name,setName]=useState(selected?.name||'My Template');
- const [font,setFont]=useState('Arial');
- const [logo,setLogo]=useState<string>('');
- const selectedElement=elements.find(e=>e.id===selectedId);
- const previewInvoice=createBlankInvoice({...selected,styling:{...selected.styling,themeColor:color,fontFamily:'sans'}});
- const push=(next:CanvasElement[])=>{setHistory(h=>[...h,elements].slice(-30));setFuture([]);setElements(next)};
- const update=(patch:Partial<CanvasElement>)=>{if(!selectedElement)return;push(elements.map(e=>e.id===selectedId?{...e,...patch}:e));};
- const add=(kind:ElementKind)=>{const id=`el-${Date.now()}`;push([...elements,{id,kind,label:kind==='text'?'New Text':'',x:100,y:100+elements.length*18,w:220,h:45,fontSize:16,fontFamily:font,color:'#172033',background:'transparent',bold:false,align:'left'}]);setSelectedId(id)};
- const openEditor=(tpl:InvoiceTemplate)=>{setSelected(tpl);setName(tpl.name);setColor(tpl.styling.themeColor);setMode('edit');setElements(starterElements());setSelectedId('company');setHistory([]);setFuture([])};
- const save=()=>{const tpl={...selected,name,styling:{...selected.styling,themeColor:color},customTemplateCode:elementsToHtml(elements,color),updatedAt:new Date().toISOString()};saveTemplate(tpl);setSelected(tpl);setActiveTemplate(tpl);showToast('success','Template Saved',`${name} is ready to use.`)};
- const create=()=>{const now=new Date().toISOString();const tpl:InvoiceTemplate={id:`tpl-${Date.now()}`,name:'New Visual Template',description:'Designed with the visual invoice editor.',category:'custom',businessDetails:{companyName:'My Business',contactPerson:'',email:'',phone:'',address:'',cityStateZip:'',taxNumber:'',website:'',logoUrl:''},currency:{symbol:'Rs.',code:'PKR',position:'prefix'},customFields:[],styling:{themeColor:'#2563eb',fontFamily:'sans',headerLayout:'modern',showBorders:true,showWatermark:false,accentBackground:true},defaultTaxRate:0,defaultPaymentTerms:'Payment due on receipt.',defaultNotes:'Thank you for your business!',paymentDetails:'',createdAt:now,updatedAt:now};saveTemplate(tpl);openEditor(tpl)};
- const custom=()=>create();
- const doDelete=()=>{if(templates.length<=1){showToast('warning','Cannot Delete','Keep at least one template.');return} deleteTemplate(selected.id);setMode(null);showToast('success','Template Deleted','The template was removed.')};
- const undo=()=>{if(!history.length)return;const h=[...history];const prev=h.pop()!;setFuture(f=>[elements,...f]);setHistory(h);setElements(prev)};
- const redo=()=>{if(!future.length)return;const f=[...future];const next=f.shift()!;setHistory(h=>[...h,elements]);setFuture(f);setElements(next)};
- const uploadLogo=(file?:File)=>{if(!file)return;const r=new FileReader();r.onload=()=>{const src=String(r.result);setLogo(src);update({value:src})};r.readAsDataURL(file)};
- if(mode){return <div className="fixed inset-0 z-50 bg-slate-100 flex flex-col">
-   <div className="h-16 bg-white border-b flex items-center justify-between px-5 shrink-0"><div className="flex items-center gap-3"><button onClick={()=>setMode(null)} className="p-2 hover:bg-slate-100 rounded-lg"><X/></button><div><input value={name} onChange={e=>setName(e.target.value)} className="font-bold text-lg border-0 outline-none bg-transparent"/><div className="text-xs text-slate-500">Visual Invoice Template Editor</div></div></div><div className="flex gap-2"><button onClick={undo} className="p-2 rounded-lg border" title="Undo"><RotateCcw size={17}/></button><button onClick={redo} className="p-2 rounded-lg border" title="Redo"><RotateCw size={17}/></button>{mode==='edit'&&<button onClick={save} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold flex gap-2"><Save size={17}/> Save Template</button>}</div></div>
-   <div className="flex flex-1 min-h-0">
-    <aside className="w-64 bg-white border-r p-4 overflow-y-auto space-y-5"><div><h3 className="font-bold mb-3">Add Elements</h3><div className="grid grid-cols-2 gap-2">{[[Type,'Text','text'],[ImageIcon,'Logo','logo'],[Table2,'Items','items'],[DollarSign,'Total','total'],[CalendarDays,'Date','date'],[UserRound,'Customer','customer'],[Minus,'Line','line']].map(([I,l,k]:any)=><button key={l} onClick={()=>add(k)} className="p-3 border rounded-xl text-xs font-semibold hover:border-indigo-400 hover:bg-indigo-50"><I size={18} className="mx-auto mb-1"/>{l}</button>)}</div></div><div><h3 className="font-bold mb-3">Brand Color</h3><div className="flex flex-wrap gap-2">{palettes.map(c=><button key={c} onClick={()=>{setColor(c);if(selectedElement)update({color:c})}} className="w-7 h-7 rounded-full border-2 border-white ring-1 ring-slate-200" style={{background:c}}/>)}</div><input type="color" value={color} onChange={e=>setColor(e.target.value)} className="w-full mt-3 h-9"/></div><div><h3 className="font-bold mb-2">Font</h3><select value={font} onChange={e=>{setFont(e.target.value);update({fontFamily:e.target.value})}} className="w-full border rounded-lg p-2 text-sm">{fonts.map(f=><option key={f}>{f}</option>)}</select></div><div className="text-xs text-slate-500">Click an element on the invoice to select it. Use the controls on the right to edit it.</div></aside>
-    <main className="flex-1 overflow-auto p-8 flex justify-center items-start"><div className="bg-white shadow-xl relative" style={{width:700,minHeight:620}}>{elements.map(e=><div key={e.id} onClick={()=>setSelectedId(e.id)} className={`absolute cursor-move ${selectedId===e.id?'ring-2 ring-indigo-500 ring-offset-1':''}`} style={{left:e.x,top:e.y,width:e.w,height:e.h,fontFamily:e.fontFamily,fontSize:e.fontSize,color:e.color,background:e.background,fontWeight:e.bold?700:400,textAlign:e.align,display:'flex',alignItems:'center',justifyContent:e.align==='left'?'flex-start':e.align==='center'?'center':'flex-end',padding:6,overflow:'hidden',whiteSpace:'pre-line'}}>{e.kind==='logo'?(logo?<img src={logo} className="max-w-full max-h-full object-contain"/>:'LOGO'):e.kind==='company'?'COMPANY NAME':e.kind==='customer'?'BILL TO:\nCustomer Name\nPhone / Email':e.kind==='date'?'Invoice #1001\nDate: 02/09/2026\nDue: 16/09/2026':e.kind==='items'?<div className="w-full h-full border rounded overflow-hidden"><table className="w-full text-xs"><thead><tr style={{background:color,color:'#fff'}}><th className="p-2">Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead><tbody><tr><td className="p-2 border">Orthopedic Product</td><td>1</td><td>Rs. 3,500</td><td>Rs. 3,500</td></tr><tr><td className="p-2 border">Service / Item</td><td>2</td><td>Rs. 2,000</td><td>Rs. 4,000</td></tr></tbody></table></div>:e.kind==='total'?'TOTAL: Rs. 7,500':e.kind==='line'?null:e.label}</div>)}</div></main>
-    <aside className="w-72 bg-white border-l p-4 overflow-y-auto">{selectedElement?<><h3 className="font-bold mb-4">Element Properties</h3><label className="text-xs font-semibold">Text</label><textarea value={selectedElement.label} onChange={e=>update({label:e.target.value})} className="w-full border rounded-lg p-2 mt-1 mb-4" rows={3}/><label className="text-xs font-semibold">Font</label><select value={selectedElement.fontFamily} onChange={e=>update({fontFamily:e.target.value})} className="w-full border rounded-lg p-2 mt-1 mb-3">{fonts.map(f=><option key={f}>{f}</option>)}</select><div className="grid grid-cols-2 gap-2 mb-3"><div><label className="text-xs">Size</label><input type="number" value={selectedElement.fontSize} onChange={e=>update({fontSize:+e.target.value})} className="w-full border rounded-lg p-2"/></div><div><label className="text-xs">Width</label><input type="number" value={selectedElement.w} onChange={e=>update({w:+e.target.value})} className="w-full border rounded-lg p-2"/></div><div><label className="text-xs">Height</label><input type="number" value={selectedElement.h} onChange={e=>update({h:+e.target.value})} className="w-full border rounded-lg p-2"/></div><div><label className="text-xs">X Position</label><input type="number" value={selectedElement.x} onChange={e=>update({x:+e.target.value})} className="w-full border rounded-lg p-2"/></div><div><label className="text-xs">Y Position</label><input type="number" value={selectedElement.y} onChange={e=>update({y:+e.target.value})} className="w-full border rounded-lg p-2"/></div></div><div className="flex gap-2 mb-3"><button onClick={()=>update({bold:!selectedElement.bold})} className={`flex-1 p-2 border rounded-lg font-bold ${selectedElement.bold?'bg-indigo-100':''}`}>B</button>{(['left','center','right'] as const).map(a=><button key={a} onClick={()=>update({align:a})} className={`flex-1 p-2 border rounded-lg ${selectedElement.align===a?'bg-indigo-100':''}`}>{a[0].toUpperCase()}</button>)}</div><label className="text-xs font-semibold">Text Color</label><input type="color" value={selectedElement.color.startsWith('#')?selectedElement.color:'#172033'} onChange={e=>update({color:e.target.value})} className="w-full h-9 mb-3"/><label className="text-xs font-semibold">Background</label><input type="color" value={selectedElement.background==='transparent'?'#ffffff':selectedElement.background} onChange={e=>update({background:e.target.value})} className="w-full h-9 mb-3"/><label className="flex items-center gap-2 text-xs font-semibold border rounded-lg p-2 cursor-pointer"><ImageIcon size={15}/> Upload Logo<input type="file" accept="image/*" className="hidden" onChange={e=>uploadLogo(e.target.files?.[0])}/></label><button onClick={()=>{push(elements.filter(e=>e.id!==selectedId));setSelectedId(elements.find(e=>e.id!==selectedId)?.id||'')}} className="w-full mt-3 p-2 rounded-lg bg-rose-50 text-rose-700 font-semibold"><Trash2 size={15} className="inline mr-1"/> Delete Element</button></>:<div className="text-sm text-slate-500">Select an element to edit.</div>}</aside>
-   </div></div>}
- return <div className="max-w-7xl mx-auto px-4 py-8 space-y-6"><div className="bg-white border rounded-2xl p-6 flex flex-col md:flex-row justify-between gap-4"><div><h1 className="text-2xl font-bold">Invoice Templates</h1><p className="text-sm text-slate-500 mt-1">Choose a design or create your own with the visual editor.</p></div><div className="flex gap-2"><button onClick={create} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold flex gap-2 items-center"><Plus size={18}/> Create New Template</button><button onClick={custom} className="px-4 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">+ Custom Template</button></div></div><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{templates.map(t=><div key={t.id} className={`bg-white border rounded-2xl overflow-hidden ${selected?.id===t.id?'ring-2 ring-indigo-500':''}`}><div className="h-40 bg-slate-50 p-3"><div className="h-full bg-white shadow-sm rounded border p-3"><div className="flex justify-between"><div className="h-5 w-28 bg-slate-200 rounded"/><div className="h-5 w-16 bg-slate-200 rounded"/></div><div className="h-2 w-full bg-slate-100 mt-4 rounded"/><div className="h-2 w-4/5 bg-slate-100 mt-2 rounded"/><div className="h-16 w-full bg-slate-50 mt-3 rounded"/><div className="flex justify-end mt-2"><div className="h-4 w-24 rounded" style={{background:t.styling.themeColor}}/></div></div></div><div className="p-4"><div className="flex justify-between gap-2"><div><h3 className="font-bold">{t.name}</h3><p className="text-xs text-slate-500 mt-1 line-clamp-2">{t.description}</p></div><span className="text-[10px] uppercase px-2 py-1 h-fit rounded-full bg-slate-100">{t.category}</span></div><div className="grid grid-cols-4 gap-2 mt-4"><button onClick={()=>{setSelected(t);setMode('view')}} className="p-2 border rounded-lg text-xs"><Eye size={15} className="mx-auto"/>View</button><button onClick={()=>openEditor(t)} className="p-2 border rounded-lg text-xs"><Edit3 size={15} className="mx-auto"/>Edit</button><button onClick={()=>{duplicateTemplate(t.id);showToast('success','Template Duplicated')}} className="p-2 border rounded-lg text-xs"><Copy size={15} className="mx-auto"/>Copy</button><button onClick={()=>{if(templates.length>1)deleteTemplate(t.id);else showToast('warning','Cannot Delete','Keep at least one template.')}} className="p-2 border rounded-lg text-xs text-rose-600"><Trash2 size={15} className="mx-auto"/>Delete</button></div><button onClick={()=>{setActiveTemplate(t);showToast('success','Template Selected',`${t.name} is now active.`)}} className="w-full mt-2 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold">Use Template</button></div></div>)}</div></div>;
+  const {templates,activeTemplate,setActiveTemplate,saveTemplate,deleteTemplate,duplicateTemplate,showToast}=useApp();
+  const [mode,setMode]=useState<'view'|'edit'|null>(null);
+  const [selected,setSelected]=useState<InvoiceTemplate>(activeTemplate||templates[0]);
+  const [sheet,setSheet]=useState<Sheet>(starterSheet());
+  const [selection,setSelection]=useState({r:1,c:0});
+  const [name,setName]=useState('');
+  const [formula,setFormula]=useState('');
+  const [history,setHistory]=useState<Sheet[]>([]); const [future,setFuture]=useState<Sheet[]>([]);
+  const fileInput=useRef<HTMLInputElement>(null);
+  const imgInput=useRef<HTMLInputElement>(null);
+
+  const cell=sheet[selection.r]?.[selection.c] || blankCell();
+  const selectedRange=`${letters[selection.c]||'A'}${selection.r+1}`;
+  const canDelete=templates.length>1;
+  const [status,setStatus]=useState('Ready');
+
+  const push=(next:Sheet)=>{setHistory(h=>[...h,cloneSheet(sheet)].slice(-30));setFuture([]);setSheet(next);setStatus('Unsaved changes')};
+  const updateCell=(patch:Partial<Cell>)=>push(sheet.map((row,r)=>row.map((x,c)=>(r===selection.r&&c===selection.c)?{...x,...patch}:x)));
+  const setValue=(value:string)=>{setFormula(value);push(sheet.map((row,r)=>row.map((x,c)=>(r===selection.r&&c===selection.c)?{...x,value}:x)))};
+
+  const openEditor=(tpl:InvoiceTemplate)=>{
+    setSelected(tpl); setName(tpl.name); setMode('edit'); setSelection({r:1,c:0}); setHistory([]); setFuture([]);
+    setSheet(tpl.customTemplateCode ? starterSheet() : starterSheet());
+  };
+  const openView=(tpl:InvoiceTemplate)=>{setSelected(tpl);setName(tpl.name);setMode('view');setSheet(starterSheet());setSelection({r:1,c:0});};
+  const create=()=>{
+    const now=new Date().toISOString();
+    const tpl:InvoiceTemplate={id:`tpl-${Date.now()}`,name:'New Template',description:'Visual spreadsheet-style invoice template.',category:'custom',businessDetails:{companyName:'My Business',contactPerson:'',email:'',phone:'',address:'',cityStateZip:'',taxNumber:'',website:'',logoUrl:''},currency:{symbol:'Rs.',code:'PKR',position:'prefix'},customFields:[],styling:{themeColor:'#2563eb',fontFamily:'sans',headerLayout:'modern',showBorders:true,showWatermark:false,accentBackground:true},defaultTaxRate:0,defaultPaymentTerms:'Payment due on receipt.',defaultNotes:'Thank you for your business!',paymentDetails:'',createdAt:now,updatedAt:now};
+    saveTemplate(tpl); openEditor(tpl); showToast('success','Template Created','Your visual template is ready to edit.');
+  };
+  const custom=()=>create();
+  const save=()=>{setStatus('Saving...');
+    const tpl={...selected,name,customTemplateCode:sheetToHtml(sheet,name),updatedAt:new Date().toISOString()};
+    saveTemplate(tpl);setSelected(tpl);setActiveTemplate(tpl);showToast('success','Template Saved','Saved successfully.');setStatus('Saved');
+  };
+  const del=()=>{if(!canDelete){showToast('warning','Cannot Delete','Keep at least one template.');return}deleteTemplate(selected.id);setMode(null)};
+  const duplicate=()=>{duplicateTemplate(selected.id);showToast('success','Duplicated','Template copy created.')};
+  const undo=()=>{if(!history.length)return;const h=[...history];const prev=h.pop()!;setFuture(f=>[cloneSheet(sheet),...f]);setHistory(h);setSheet(prev)};
+  const redo=()=>{if(!future.length)return;const f=[...future];const next=f.shift()!;setHistory(h=>[...h,cloneSheet(sheet)]);setFuture(f);setSheet(next)};
+  const addRow=()=>push([...sheet,Array.from({length:COLS},blankCell)]);
+  const addCol=()=>push(sheet.map(r=>[...r,blankCell()]));
+  const mergeRight=()=>{if(selection.c>=sheet[0].length-1)return;push(sheet.map((r,ri)=>r.map((x,ci)=>{if(ri!==selection.r)return x;if(ci===selection.c)return {...x,colSpan:2};if(ci===selection.c+1)return {...blankCell(),value:''};return x})))};
+  const chooseToken=(token:string)=>setValue(token);
+  const uploadTemplate=async(file?:File)=>{if(!file)return; const text=await file.text(); setName(file.name.replace(/\.html?$/i,'')||'Imported Template'); setFormula(text.slice(0,200)); showToast('success','Template Imported','Imported file is open; spreadsheet editing remains available.')};
+  const uploadImage=(file?:File)=>{if(!file)return;const fr=new FileReader();fr.onload=()=>{updateCell({value:`[Logo: ${String(fr.result)}]`})};fr.readAsDataURL(file)};
+
+  const gridCols=sheet[0]?.length||COLS;
+
+  if(mode){
+    return <div className="fixed inset-0 z-[100] bg-[#f3f6fa] flex flex-col">
+      <div className="bg-white border-b shadow-sm">
+        <div className="h-12 flex items-center gap-4 px-4 border-b">
+          <button onClick={()=>setMode(null)} className="px-2 py-1 rounded hover:bg-slate-100"><X size={18}/></button>
+          <input value={name} onChange={e=>setName(e.target.value)} className="font-bold text-sm outline-none w-56"/>
+          <span className="text-xs text-slate-500">Invoice Template</span>
+          <div className="ml-auto flex gap-2">
+            <button onClick={undo} className="p-2 border rounded hover:bg-slate-50"><Undo2 size={16}/></button>
+            <button onClick={redo} className="p-2 border rounded hover:bg-slate-50"><Redo2 size={16}/></button>
+            {mode==='edit'&&<button onClick={save} className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-bold flex items-center gap-2"><Save size={16}/>Save</button>}
+          </div>
+        </div>
+        <div className="h-11 flex items-center gap-1 px-3 text-xs border-b overflow-x-auto">
+          {['File','Edit','View','Insert','Format','Data'].map(x=><button key={x} className="px-3 py-2 rounded hover:bg-slate-100">{x}</button>)}
+        </div>
+        <div className="min-h-12 flex items-center gap-1 px-3 py-2 flex-wrap">
+          <button onClick={undo} className="tb"><Undo2 size={15}/></button><button onClick={redo} className="tb"><Redo2 size={15}/></button><span className="sep"/>
+          <select value={cell.fontSize||12} onChange={e=>updateCell({fontSize:Number(e.target.value)})} className="ctl">{[8,9,10,11,12,14,16,18,20,24,28,32].map(x=><option key={x}>{x}</option>)}</select>
+          <button onClick={()=>updateCell({bold:!cell.bold})} className={`tb ${cell.bold?'on':''}`}><Bold size={15}/></button><button onClick={()=>updateCell({italic:!cell.italic})} className={`tb ${cell.italic?'on':''}`}><Italic size={15}/></button><button onClick={()=>updateCell({underline:!cell.underline})} className={`tb ${cell.underline?'on':''}`}><Underline size={15}/></button>
+          <label className="tb relative">A<input type="color" value={cell.color||'#172033'} onChange={e=>updateCell({color:e.target.value})} className="absolute inset-0 opacity-0 cursor-pointer"/></label>
+          <label className="tb relative">▣<input type="color" value={cell.background||'#ffffff'} onChange={e=>updateCell({background:e.target.value})} className="absolute inset-0 opacity-0 cursor-pointer"/></label>
+          <button onClick={()=>updateCell({align:'left'})} className="tb">≡</button><button onClick={()=>updateCell({align:'center'})} className="tb">≡</button><button onClick={()=>updateCell({align:'right'})} className="tb">≡</button>
+          <button onClick={()=>updateCell({border:!cell.border})} className="tb">▦</button><button onClick={mergeRight} className="tb"><Merge size={15}/></button>
+          <span className="sep"/>
+          <button onClick={()=>imgInput.current?.click()} className="tb px-3"><ImageIcon size={15}/>Logo</button><input ref={imgInput} type="file" accept="image/*" hidden onChange={e=>uploadImage(e.target.files?.[0])}/>
+          <button onClick={addRow} className="tb px-3">+ Row</button><button onClick={addCol} className="tb px-3">+ Column</button>
+          <div className="ml-auto flex items-center gap-2 text-xs"><span className="text-slate-500">Selected:</span><b>{selectedRange}</b></div>
+        </div>
+        <div className="h-9 bg-slate-50 border-t flex items-center gap-2 px-3">
+          <div className="w-14 border bg-white rounded px-2 py-1 text-xs text-center">{selectedRange}</div>
+          <span className="text-slate-400">fx</span>
+          <input value={formula} onChange={e=>{setFormula(e.target.value);}} onKeyDown={e=>{if(e.key==='Enter')setValue(formula)}} onBlur={()=>setValue(formula)} className="flex-1 border bg-white rounded px-2 py-1 text-xs outline-none" placeholder="Enter text or invoice field e.g. {{clientName}}"/>
+        </div>
+      </div>
+      <div className="flex-1 min-h-0 flex">
+        <aside className="w-60 bg-white border-r overflow-y-auto p-3 space-y-4">
+          <div><div className="font-bold text-sm mb-2">Insert Invoice Field</div><div className="grid grid-cols-2 gap-1.5">{tokens.map(([label,token])=><button key={token} onClick={()=>chooseToken(token)} className="text-[10px] p-2 border rounded hover:bg-indigo-50 text-left">{label}</button>)}</div></div>
+          <div><div className="font-bold text-sm mb-2">Template</div><label className="w-full flex items-center justify-center gap-2 px-3 py-2 border rounded-lg text-xs cursor-pointer hover:bg-slate-50"><Upload size={14}/> Import HTML/TXT<input ref={fileInput} type="file" accept=".html,.htm,.txt" hidden onChange={e=>{uploadTemplate(e.target.files?.[0]);e.currentTarget.value=''}}/></label></div>
+        </aside>
+        <main className="flex-1 overflow-auto p-8">
+          <div className="mx-auto bg-white shadow-xl border" style={{width:780,minHeight:920}}>
+            <div className="flex bg-slate-100 sticky top-0 z-10 border-b">
+              <div className="w-10"/><div className="grid" style={{gridTemplateColumns:`repeat(${gridCols}, 1fr)`,flex:1}}>{Array.from({length:gridCols},(_,c)=><div key={c} className="h-7 border-r text-center text-[10px] text-slate-500 py-1">{letters[c]||c+1}</div>)}</div>
+            </div>
+            <div className="flex">
+              <div className="w-10 bg-slate-100">{sheet.map((_,r)=><div key={r} className="h-9 border-b text-center text-[10px] text-slate-500 py-2">{r+1}</div>)}</div>
+              <div className="flex-1">
+                {sheet.map((row,r)=><div key={r} className="grid" style={{gridTemplateColumns:`repeat(${gridCols},1fr)`}}>{row.map((x,c)=>{
+                  const active=selection.r===r&&selection.c===c;
+                  return <div key={c} onClick={()=>{setSelection({r,c});setFormula(x.value)}} className={`h-9 border-r border-b relative ${active?'ring-2 ring-inset ring-indigo-500 z-10':''}`} style={{background:x.background,color:x.color,fontWeight:x.bold?700:400,fontStyle:x.italic?'italic':'normal',textDecoration:x.underline?'underline':'none',textAlign:x.align||'left',fontSize:x.fontSize||12,verticalAlign:x.vertical||'middle'}}>
+                    <div contentEditable suppressContentEditableWarning onFocus={()=>{setSelection({r,c});setFormula(x.value)}} onInput={e=>{const val=e.currentTarget.textContent||'';setSheet(old=>old.map((rr,ri)=>rr.map((cc,ci)=>ri===r&&ci===c?{...cc,value:val}:cc)));setFormula(val)}} className="w-full h-full px-1.5 py-2 outline-none overflow-hidden whitespace-nowrap">{x.value}</div>
+                  </div>})}</div>)}
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+      <div className="h-7 bg-[#166534] text-white text-[10px] px-3 flex items-center"><Check size={12} className="mr-1"/> {status}</div>
+    </div>
+  }
+
+  return <div className="p-6 max-w-7xl mx-auto">
+    <div className="flex items-center justify-between mb-6"><div><h1 className="text-2xl font-bold">Invoice Templates</h1><p className="text-sm text-slate-500 mt-1">Choose a template or create your own visual Excel-style invoice.</p></div><div className="flex gap-2"><button onClick={create} className="px-4 py-2 rounded-lg border bg-white font-semibold flex items-center gap-2"><Plus size={16}/>Create New Template</button><button onClick={custom} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold flex items-center gap-2"><Grid3X3 size={16}/>Custom Template</button></div></div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">{templates.map(t=><div key={t.id} className="bg-white rounded-2xl border shadow-sm p-4 hover:shadow-md transition"><div className="h-44 rounded-xl bg-slate-50 border flex items-center justify-center overflow-hidden"><div className="w-[85%] h-[80%] bg-white border shadow-sm p-3"><div className="h-5 bg-slate-100 mb-2"/><div className="h-3 w-2/3 bg-slate-100 mb-2"/><div className="grid grid-cols-4 gap-1">{Array.from({length:16},(_,i)=><div key={i} className="h-3 bg-slate-100"/>)}</div></div></div><div className="mt-3 font-bold truncate">{t.name}</div><div className="text-xs text-slate-500 truncate">{t.description||'Invoice template'}</div><div className="mt-4 grid grid-cols-4 gap-2"><button onClick={()=>openView(t)} className="action"><Eye size={15}/>View</button><button onClick={()=>openEditor(t)} className="action"><Edit3 size={15}/>Edit</button><button onClick={()=>duplicateTemplate(t.id)} className="action"><Copy size={15}/>Copy</button><button onClick={()=>{if(canDelete)deleteTemplate(t.id);}} disabled={!canDelete} className="action text-rose-600 disabled:opacity-30"><Trash2 size={15}/>Delete</button></div><button onClick={()=>{setActiveTemplate(t);showToast('success','Template Selected',t.name)}} className={`mt-2 w-full py-2 rounded-lg text-xs font-bold ${activeTemplate?.id===t.id?'bg-emerald-600 text-white':'bg-indigo-50 text-indigo-700'}`}>{activeTemplate?.id===t.id?'✓ Active Template':'Use Template'}</button></div>)}</div>
+    <style>{`.tb{height:32px;min-width:32px;padding:0 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:12px}.tb:hover{background:#f1f5f9}.tb.on{background:#dbeafe;border-color:#60a5fa}.ctl{height:32px;border:1px solid #d1d5db;border-radius:6px;background:#fff;padding:0 8px;font-size:12px}.sep{width:1px;height:24px;background:#d1d5db;display:inline-block;margin:0 3px}.action{height:34px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px}.action:hover{background:#f8fafc}`}</style>
+  </div>;
 };
