@@ -73,6 +73,8 @@ export interface InvoiceTemplate {
   createdAt: string;
   updatedAt: string;
   isDefault?: boolean;
+  /** Optional user-authored HTML/CSS invoice template. Supports {{...}} placeholders. */
+  customTemplateCode?: string;
 }
 
 export interface InvoiceData {

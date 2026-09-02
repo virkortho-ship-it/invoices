@@ -19,7 +19,10 @@ import {
   Eye,
   FileText,
   FilePlus,
-  CreditCard
+  CreditCard,
+  Code2,
+  Upload,
+  X
 } from 'lucide-react';
 
 const COLOR_PRESETS = [
@@ -58,7 +61,7 @@ export const TemplateManager: React.FC = () => {
     return activeTemplate || templates[0];
   });
 
-  const [activeTab, setActiveTab] = useState<'business' | 'fields' | 'styling' | 'defaults'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'fields' | 'styling' | 'defaults' | 'code'>('business');
 
   // Switch template
   const handleSelectTemplate = (tpl: InvoiceTemplate) => {
@@ -98,6 +101,39 @@ export const TemplateManager: React.FC = () => {
       ...prev,
       customFields: prev.customFields.filter(cf => cf.id !== id),
     }));
+  };
+
+  // Upload a custom HTML/CSS template file. The code remains editable in the editor below.
+  const handleTemplateCodeUpload = async (file?: File) => {
+    if (!file) return;
+    if (!/\.(html?|txt)$/i.test(file.name)) {
+      showToast('error', 'Unsupported file', 'Please upload an HTML, HTM, or TXT template file.');
+      return;
+    }
+    try {
+      const code = await file.text();
+      setEditingTemplate(prev => ({ ...prev, customTemplateCode: code }));
+      showToast('success', 'Template Code Loaded', `${file.name} is ready to edit. Click Save to keep it.`);
+    } catch (error) {
+      console.error(error);
+      showToast('error', 'Upload Failed', 'Could not read the template file.');
+    }
+  };
+
+  const handleClearTemplateCode = () => {
+    setEditingTemplate(prev => ({ ...prev, customTemplateCode: '' }));
+    showToast('info', 'Custom Code Removed', 'The built-in invoice layout will be used after you save.');
+  };
+
+  const handleDeleteCurrentTemplate = () => {
+    if (templates.length <= 1) {
+      deleteTemplate(editingTemplate.id);
+      return;
+    }
+    const nextTemplate = templates.find(t => t.id !== editingTemplate.id) || templates[0];
+    deleteTemplate(editingTemplate.id);
+    setSelectedTemplateId(nextTemplate.id);
+    setEditingTemplate(nextTemplate);
   };
 
   // Save template changes
@@ -226,7 +262,7 @@ export const TemplateManager: React.FC = () => {
                 <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
                   <span className="font-medium">{tpl.customFields.length} custom fields</span>
                   <span className={`font-semibold ${isSelected ? 'text-indigo-600' : 'text-slate-600'}`}>
-                    {isSelected ? '✓ Editing' : 'Select'}
+                    {isSelected ? '✓ Editing' : 'Edit'}
                   </span>
                 </div>
               </div>
@@ -267,7 +303,7 @@ export const TemplateManager: React.FC = () => {
 
                 {templates.length > 1 && (
                   <button
-                    onClick={() => deleteTemplate(editingTemplate.id)}
+                    onClick={handleDeleteCurrentTemplate}
                     className="p-2 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
                     title="Delete Template"
                   >
@@ -319,6 +355,14 @@ export const TemplateManager: React.FC = () => {
                 }`}
               >
                 📝 Notes & Terms
+              </button>
+              <button
+                onClick={() => setActiveTab('code')}
+                className={`flex-1 py-2 rounded-lg transition-all ${
+                  activeTab === 'code' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5 inline mr-1" /> Code Template
               </button>
             </div>
 
@@ -693,6 +737,55 @@ export const TemplateManager: React.FC = () => {
                     placeholder="Thank you for choosing us, warranty note, doctor advice..."
                   />
                 </div>
+              </div>
+            )}
+
+            {/* TAB 5: Custom HTML/CSS Code Template */}
+            {activeTab === 'code' && (
+              <div className="space-y-5">
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                  <div className="flex items-start gap-3">
+                    <Code2 className="w-5 h-5 text-indigo-600 mt-0.5 shrink-0" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Custom Template Code</h3>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">Paste HTML/CSS or upload a template file. Your code can use invoice placeholders so data fills automatically.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer">
+                    <Upload className="w-4 h-4" /> Upload HTML / TXT
+                    <input type="file" accept=".html,.htm,.txt,text/html,text/plain" className="hidden" onChange={e => { handleTemplateCodeUpload(e.target.files?.[0]); e.currentTarget.value = ''; }} />
+                  </label>
+                  <button type="button" onClick={handleClearTemplateCode} disabled={!editingTemplate.customTemplateCode} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed">
+                    <X className="w-4 h-4" /> Remove Custom Code
+                  </button>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-slate-800">HTML / CSS Code</label>
+                    <span className="text-[10px] text-slate-500">{(editingTemplate.customTemplateCode || '').length.toLocaleString()} characters</span>
+                  </div>
+                  <textarea value={editingTemplate.customTemplateCode || ''} onChange={e => setEditingTemplate(prev => ({ ...prev, customTemplateCode: e.target.value }))} spellCheck={false} className="w-full min-h-[420px] bg-slate-950 text-slate-100 border border-slate-700 rounded-xl p-4 font-mono text-[11px] leading-relaxed outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder={`<div class="invoice">
+  <h1>INVOICE</h1>
+  <p>{{companyName}}</p>
+  <p>{{invoiceNumber}} · {{date}}</p>
+  {{itemsTable}}
+  <strong>{{grandTotal}}</strong>
+</div>
+<style>/* your CSS */</style>`} />
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h4 className="text-xs font-bold text-slate-800 mb-2">Available placeholders</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px] font-mono text-slate-600">
+                    {['{{companyName}}','{{contactPerson}}','{{email}}','{{phone}}','{{address}}','{{invoiceNumber}}','{{date}}','{{dueDate}}','{{status}}','{{clientName}}','{{clientPhone}}','{{clientEmail}}','{{clientAddress}}','{{itemsTable}}','{{subtotal}}','{{discountTotal}}','{{taxTotal}}','{{shippingFee}}','{{grandTotal}}','{{amountPaid}}','{{balanceDue}}','{{paymentTerms}}','{{paymentDetails}}','{{notes}}','{{customFields}}'].map(token => <code key={token} className="px-2 py-1 rounded bg-white border border-slate-200 truncate">{token}</code>)}
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-500"><strong>How it works:</strong> upload/paste code → edit it here → click <b>Save</b>. The custom design becomes the invoice preview and is included in PDF generation.</div>
               </div>
             )}
 

@@ -8,6 +8,88 @@ interface InvoicePreviewProps {
   isPrintMode?: boolean;
 }
 
+const escapeHtml = (value: unknown) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const sanitizeCustomTemplate = (code: string) => code
+  .replace(/<script[\s\S]*?<\/script>/gi, '')
+  .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+  .replace(/<object[\s\S]*?<\/object>/gi, '')
+  .replace(/<embed[^>]*>/gi, '')
+  .replace(/\son\w+\s*=\s*(["']).*?\1/gi, '')
+  .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+  .replace(/javascript\s*:/gi, '');
+
+const renderCustomTemplate = (code: string, invoice: InvoiceData, template?: InvoiceTemplate) => {
+  const currency = invoice.currency || { symbol: 'Rs.', code: 'PKR', position: 'prefix' };
+  const money = (amount: number) => {
+    const n = (amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return currency.position === 'prefix' ? `${currency.symbol} ${n}` : `${n} ${currency.symbol}`;
+  };
+
+  const enabledFields = (template?.customFields || []).filter(field => field.enabled);
+  const customFields = enabledFields.map(field => {
+    const value = invoice.customFieldValues?.[field.id] || field.defaultValue || '';
+    return `<div class="custom-field"><span>${escapeHtml(field.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+  }).join('');
+
+  const itemsTable = `
+    <table class="invoice-items-table" style="width:100%;border-collapse:collapse">
+      <thead><tr><th>#</th><th>Item &amp; Description</th><th>Qty</th><th>Rate</th><th>Disc %</th><th>Amount</th></tr></thead>
+      <tbody>
+        ${invoice.items.map((item, index) => {
+          const base = item.quantity * item.unitPrice;
+          const discount = base * (item.discountPercent || 0) / 100;
+          const amount = base - discount;
+          return `<tr><td>${index + 1}</td><td>${escapeHtml(item.description || 'Item / Service')}</td><td>${item.quantity}</td><td>${escapeHtml(money(item.unitPrice))}</td><td>${item.discountPercent ? `${item.discountPercent}%` : '—'}</td><td>${escapeHtml(money(amount))}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+
+  const values: Record<string, string> = {
+    companyName: escapeHtml(invoice.sender.companyName || 'Business Name'),
+    contactPerson: escapeHtml(invoice.sender.contactPerson || ''),
+    email: escapeHtml(invoice.sender.email || ''),
+    phone: escapeHtml(invoice.sender.phone || ''),
+    address: escapeHtml([invoice.sender.address, invoice.sender.cityStateZip].filter(Boolean).join(', ')),
+    taxNumber: escapeHtml(invoice.sender.taxNumber || ''),
+    website: escapeHtml(invoice.sender.website || ''),
+    logoUrl: escapeHtml(invoice.sender.logoUrl || ''),
+    logo: invoice.sender.logoUrl ? `<img src="${escapeHtml(invoice.sender.logoUrl)}" alt="${escapeHtml(invoice.sender.companyName || 'Logo')}" style="max-width:180px;max-height:90px;object-fit:contain" />` : '',
+    invoiceNumber: escapeHtml(invoice.invoiceNumber),
+    date: escapeHtml(invoice.date),
+    dueDate: escapeHtml(invoice.dueDate),
+    status: escapeHtml(invoice.status),
+    clientName: escapeHtml(invoice.recipient.name || ''),
+    clientPhone: escapeHtml(invoice.recipient.phone || ''),
+    clientEmail: escapeHtml(invoice.recipient.email || ''),
+    clientAddress: escapeHtml([invoice.recipient.address, invoice.recipient.cityStateZip].filter(Boolean).join(', ')),
+    clientTaxNumber: escapeHtml(invoice.recipient.taxNumber || ''),
+    itemsTable,
+    subtotal: escapeHtml(money(invoice.subtotal)),
+    discountTotal: escapeHtml(money(invoice.discountTotal)),
+    taxTotal: escapeHtml(money(invoice.taxTotal)),
+    shippingFee: escapeHtml(money(invoice.shippingFee)),
+    grandTotal: escapeHtml(money(invoice.grandTotal)),
+    amountPaid: escapeHtml(money(invoice.amountPaid)),
+    balanceDue: escapeHtml(money(invoice.balanceDue)),
+    paymentTerms: escapeHtml(invoice.paymentTerms || ''),
+    paymentDetails: escapeHtml(invoice.paymentDetails || ''),
+    notes: escapeHtml(invoice.notes || ''),
+    customFields,
+    currency: escapeHtml(currency.code),
+    currencySymbol: escapeHtml(currency.symbol),
+    themeColor: escapeHtml(template?.styling.themeColor || '#2563eb'),
+  };
+
+  const processed = sanitizeCustomTemplate(code).replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_match, key) => values[key] ?? '');
+  return processed;
+};
+
 export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
   ({ invoice, template, isPrintMode = false }, ref) => {
     const styling = template?.styling || {
@@ -21,6 +103,21 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
 
     const themeColor = styling.themeColor || '#2563eb';
     const currency = invoice.currency || { symbol: 'Rs.', code: 'PKR', position: 'prefix' };
+
+    // If the user supplied HTML/CSS, render that design instead of the built-in layout.
+    if (template?.customTemplateCode?.trim()) {
+      return (
+        <div
+          ref={ref}
+          id="invoice-document-render"
+          data-invoice-preview="true"
+          className="bg-white text-slate-800 rounded-xl shadow-md print:shadow-none print:m-0 print:p-0 print:border-none max-w-3xl mx-auto border border-slate-200 relative overflow-hidden"
+          style={{ fontFamily: styling.fontFamily === 'serif' ? 'Georgia, serif' : styling.fontFamily === 'mono' ? 'monospace' : 'system-ui, sans-serif' }}
+        >
+          <div className="invoice-custom-template" dangerouslySetInnerHTML={{ __html: renderCustomTemplate(template.customTemplateCode, invoice, template) }} />
+        </div>
+      );
+    }
 
     const formatMoney = (amount: number) => {
       const numStr = (amount || 0).toLocaleString(undefined, {
