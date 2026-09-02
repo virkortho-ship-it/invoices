@@ -22,20 +22,6 @@ export interface BusinessDetails {
   website?: string;
 }
 
-export interface SavedCustomer {
-  id: string;
-  name: string;
-  contactPerson?: string;
-  email: string;
-  phone: string;
-  address: string;
-  cityStateZip?: string;
-  taxNumber?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface RecipientDetails {
   name: string;
   contactPerson?: string;
