@@ -1,0 +1,8 @@
+{
+  "name": "Remix Invoice Maker \u0026 Drive Sync",
+  "description": "Create customizable invoice templates, generate professional invoices, and automatically save and view them in Google Drive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
