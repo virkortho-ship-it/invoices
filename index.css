@@ -1,1 +1,121 @@
 @import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f6f7f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f6f7f9;
+  color: #172033;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+input,
+select,
+textarea {
+  border-color: #d9dee7 !important;
+  background: #fff;
+  color: #172033;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9aa3b2;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #315f9b !important;
+  box-shadow: 0 0 0 3px rgba(49, 95, 155, 0.12) !important;
+  outline: none;
+}
+
+main {
+  background: #f6f7f9;
+}
+
+main section {
+  border-color: #e1e5eb !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03) !important;
+}
+
+main section h2 {
+  letter-spacing: -0.01em;
+}
+
+.field-input {
+  min-height: 40px;
+  border-radius: 7px !important;
+}
+
+.field-label {
+  color: #667085;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.tot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.85rem;
+  color: #667085;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.tot-row b {
+  color: #344054;
+  font-weight: 600;
+}
+
+.tot-row.total {
+  background: #f8fafc;
+  border-bottom: 0;
+  color: #172033;
+  font-size: 0.95rem;
+}
+
+.tot-row.total b {
+  color: #1d4f91;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 1023px) {
+  main section {
+    border-radius: 9px !important;
+  }
+}
+
+@media print {
+  body,
+  main {
+    background: #fff !important;
+  }
+}

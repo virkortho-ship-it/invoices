@@ -23,7 +23,7 @@ const MainContent: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
-      <div className="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased selection:bg-indigo-500 selection:text-white flex flex-col">
+      <div className="min-h-screen bg-[#f6f7f9] text-slate-800 font-sans antialiased selection:bg-[#315f9b] selection:text-white flex flex-col">
         <Navbar />
         <div className="flex-1">
           <MainContent />

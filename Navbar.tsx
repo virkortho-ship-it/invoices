@@ -25,8 +25,8 @@ export const Navbar: React.FC = () => {
   } = useApp();
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           
           {/* Logo & App Name */}
@@ -35,13 +35,13 @@ export const Navbar: React.FC = () => {
               onClick={() => setActiveView('create')}
               className="flex items-center gap-3 text-left group focus:outline-hidden"
             >
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm group-hover:bg-indigo-700 transition-all">
+              <div className="w-9 h-9 rounded-lg bg-[#315f9b] flex items-center justify-center text-white shadow-sm group-hover:bg-[#244a7c] transition-all">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-bold text-slate-900 tracking-tight">InvoicePro</span>
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  <span className="text-base font-semibold text-slate-900 tracking-tight">InvoicePro</span>
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200">
                     Smart Invoices
                   </span>
                 </div>
@@ -51,17 +51,17 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <nav className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+          <nav className="flex items-center p-1 bg-slate-50 rounded-lg border border-slate-200">
             <button
               id="nav-create-invoice"
               onClick={() => setActiveView('create')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                 activeView === 'create'
-                  ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                  ? 'bg-white text-[#315f9b] shadow-sm border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
-              <PlusCircle className="w-4 h-4 text-indigo-600" />
+              <PlusCircle className="w-4 h-4 text-[#315f9b]" />
               <span>Create Invoice</span>
             </button>
 
@@ -70,14 +70,14 @@ export const Navbar: React.FC = () => {
               onClick={() => setActiveView('invoices')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                 activeView === 'invoices'
-                  ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                  ? 'bg-white text-[#315f9b] shadow-sm border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
               <FileText className="w-4 h-4" />
               <span>Invoices</span>
               {invoices.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-indigo-100 text-indigo-700 font-bold">
+                <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-blue-50 text-[#315f9b] font-bold">
                   {invoices.length}
                 </span>
               )}
@@ -88,7 +88,7 @@ export const Navbar: React.FC = () => {
               onClick={() => setActiveView('templates')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                 activeView === 'templates'
-                  ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                  ? 'bg-white text-[#315f9b] shadow-sm border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
@@ -104,7 +104,7 @@ export const Navbar: React.FC = () => {
               onClick={() => setActiveView('drive-settings')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                 activeView === 'drive-settings'
-                  ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                  ? 'bg-white text-[#315f9b] shadow-sm border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               }`}
             >
@@ -140,7 +140,7 @@ export const Navbar: React.FC = () => {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-[#315f9b] text-white text-xs font-bold flex items-center justify-center">
                     {(user.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
@@ -157,7 +157,7 @@ export const Navbar: React.FC = () => {
                 id="btn-google-drive-connect-header"
                 onClick={signInWithGoogle}
                 disabled={isAuthLoading}
-                className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all focus:outline-hidden disabled:opacity-50"
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition-all focus:outline-hidden disabled:opacity-50"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
