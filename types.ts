@@ -75,6 +75,8 @@ export interface InvoiceTemplate {
   isDefault?: boolean;
   /** Optional user-authored HTML/CSS invoice template. Supports {{...}} placeholders. */
   customTemplateCode?: string;
+  /** Visual spreadsheet editor state persisted with the template. */
+  visualSheet?: unknown;
 }
 
 export interface InvoiceData {

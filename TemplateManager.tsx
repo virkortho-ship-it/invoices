@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { InvoiceTemplate } from '../types';
 import { Copy, Trash2, Eye, Edit3, Plus, Upload, Save, X, Undo2, Redo2, Bold, Italic, Underline, Merge, Image as ImageIcon, Grid3X3, Type, Minus, Check } from 'lucide-react';
 
-type Cell = { value: string; bold?: boolean; italic?: boolean; underline?: boolean; fontSize?: number; color?: string; background?: string; align?: 'left'|'center'|'right'; vertical?: 'top'|'middle'|'bottom'; border?: boolean; colSpan?: number };
+type Cell = { value: string; bold?: boolean; italic?: boolean; underline?: boolean; fontSize?: number; color?: string; background?: string; align?: 'left'|'center'|'right'; vertical?: 'top'|'middle'|'bottom'; border?: boolean; colSpan?: number; image?: string };
 type Sheet = Cell[][];
 
 const COLS = 8;
@@ -40,7 +40,7 @@ function starterSheet(): Sheet {
 function cloneSheet(s:Sheet):Sheet { return s.map(r=>r.map(c=>({...c}))); }
 function escapeHtml(v:string){return v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function sheetToHtml(sheet:Sheet, title:string){
-  const rows=sheet.map(row=>`<tr>${row.map(cell=>`<td${cell.colSpan&&cell.colSpan>1?` colspan="${cell.colSpan}"`:''} style="font-size:${cell.fontSize}px;color:${cell.color};background:${cell.background};font-weight:${cell.bold?700:400};font-style:${cell.italic?'italic':'normal'};text-decoration:${cell.underline?'underline':'none'};text-align:${cell.align};vertical-align:${cell.vertical||'middle'};border:${cell.border===false?'none':'1px solid #d6dee8'};padding:6px;min-height:24px">${cell.value ? escapeHtml(cell.value).replace(/\n/g,'<br/>') : '&nbsp;'}</td>`).join('')}</tr>`).join('');
+  const rows=sheet.map(row=>`<tr>${row.map(cell=>`<td${cell.colSpan&&cell.colSpan>1?` colspan="${cell.colSpan}"`:''} style="font-size:${cell.fontSize}px;color:${cell.color};background:${cell.background};font-weight:${cell.bold?700:400};font-style:${cell.italic?'italic':'normal'};text-decoration:${cell.underline?'underline':'none'};text-align:${cell.align};vertical-align:${cell.vertical||'middle'};border:${cell.border===false?'none':'1px solid #d6dee8'};padding:6px;min-height:24px">${cell.image ? `<img src="${cell.image}" alt="Logo" style="max-width:140px;max-height:55px;object-fit:contain;display:block"/>` : (cell.value ? escapeHtml(cell.value).replace(/\n/g,'<br/>') : '&nbsp;')}</td>`).join('')}</tr>`).join('');
   return `<div style="width:100%;background:#fff;padding:18px;box-sizing:border-box;font-family:Arial,sans-serif"><div style="font-size:10px;color:#64748b;margin-bottom:8px">${escapeHtml(title)}</div><table style="width:100%;border-collapse:collapse;table-layout:fixed"><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -74,9 +74,9 @@ export const TemplateManager: React.FC = () => {
 
   const openEditor=(tpl:InvoiceTemplate)=>{
     setSelected(tpl); setName(tpl.name); setMode('edit'); setSelection({r:1,c:0}); setHistory([]); setFuture([]);
-    setSheet(tpl.customTemplateCode ? starterSheet() : starterSheet());
+    setSheet(Array.isArray(tpl.visualSheet) ? cloneSheet(tpl.visualSheet as Sheet) : starterSheet());
   };
-  const openView=(tpl:InvoiceTemplate)=>{setSelected(tpl);setName(tpl.name);setMode('view');setSheet(starterSheet());setSelection({r:1,c:0});};
+  const openView=(tpl:InvoiceTemplate)=>{setSelected(tpl);setName(tpl.name);setMode('view');setSheet(Array.isArray(tpl.visualSheet) ? cloneSheet(tpl.visualSheet as Sheet) : starterSheet());setSelection({r:1,c:0});};
   const create=()=>{
     const now=new Date().toISOString();
     const tpl:InvoiceTemplate={id:`tpl-${Date.now()}`,name:'New Template',description:'Visual spreadsheet-style invoice template.',category:'custom',businessDetails:{companyName:'My Business',contactPerson:'',email:'',phone:'',address:'',cityStateZip:'',taxNumber:'',website:'',logoUrl:''},currency:{symbol:'Rs.',code:'PKR',position:'prefix'},customFields:[],styling:{themeColor:'#2563eb',fontFamily:'sans',headerLayout:'modern',showBorders:true,showWatermark:false,accentBackground:true},defaultTaxRate:0,defaultPaymentTerms:'Payment due on receipt.',defaultNotes:'Thank you for your business!',paymentDetails:'',createdAt:now,updatedAt:now};
@@ -84,7 +84,7 @@ export const TemplateManager: React.FC = () => {
   };
   const custom=()=>create();
   const save=()=>{setStatus('Saving...');
-    const tpl={...selected,name,customTemplateCode:sheetToHtml(sheet,name),updatedAt:new Date().toISOString()};
+    const tpl={...selected,name,customTemplateCode:sheetToHtml(sheet,name),visualSheet: sheet,updatedAt:new Date().toISOString()};
     saveTemplate(tpl);setSelected(tpl);setActiveTemplate(tpl);showToast('success','Template Saved','Saved successfully.');setStatus('Saved');
   };
   const del=()=>{if(!canDelete){showToast('warning','Cannot Delete','Keep at least one template.');return}deleteTemplate(selected.id);setMode(null)};
@@ -95,8 +95,26 @@ export const TemplateManager: React.FC = () => {
   const addCol=()=>push(sheet.map(r=>[...r,blankCell()]));
   const mergeRight=()=>{if(selection.c>=sheet[0].length-1)return;push(sheet.map((r,ri)=>r.map((x,ci)=>{if(ri!==selection.r)return x;if(ci===selection.c)return {...x,colSpan:2};if(ci===selection.c+1)return {...blankCell(),value:''};return x})))};
   const chooseToken=(token:string)=>setValue(token);
-  const uploadTemplate=async(file?:File)=>{if(!file)return; const text=await file.text(); setName(file.name.replace(/\.html?$/i,'')||'Imported Template'); setFormula(text.slice(0,200)); showToast('success','Template Imported','Imported file is open; spreadsheet editing remains available.')};
-  const uploadImage=(file?:File)=>{if(!file)return;const fr=new FileReader();fr.onload=()=>{updateCell({value:`[Logo: ${String(fr.result)}]`})};fr.readAsDataURL(file)};
+  const uploadTemplate=async(file?:File)=>{
+    if(!file)return;
+    const ext=file.name.toLowerCase().split('.').pop()||'';
+    const text=await file.text();
+    setName(file.name.replace(/\.(html?|txt)$/i,'')||'Imported Template');
+    try{
+      const doc=new DOMParser().parseFromString(text,'text/html');
+      const rows=Array.from(doc.querySelectorAll('table tr'));
+      if(rows.length){
+        const parsed=rows.map(tr=>Array.from(tr.querySelectorAll('th,td')).map(td=>({value:(td.textContent||'').trim(),fontSize:12,color:'#172033',background:'#ffffff',align:'left',vertical:'middle',border:true} as Cell)));
+        const cols=Math.max(COLS,...parsed.map(r=>r.length));
+        const normalized=parsed.map(r=>Array.from({length:cols},(_,i)=>r[i]||blankCell()));
+        setSheet(normalized); setSelection({r:0,c:0}); setFormula(normalized[0]?.[0]?.value||'');
+        showToast('success','Template Imported',`${file.name} opened in the spreadsheet editor.`); return;
+      }
+    }catch(err){console.error(err)}
+    setFormula(text.slice(0,200));
+    showToast(ext==='html'||ext==='htm'||ext==='txt'?'success':'warning','Template Imported',`${file.name} opened as a new editable sheet.`);
+  };
+  const uploadImage=(file?:File)=>{if(!file)return;const fr=new FileReader();fr.onload=()=>{updateCell({value:'',image:String(fr.result)});showToast('success','Image Added','Logo/image inserted into the selected cell.');};fr.readAsDataURL(file)};
 
   const gridCols=sheet[0]?.length||COLS;
 
@@ -151,7 +169,7 @@ export const TemplateManager: React.FC = () => {
                 {sheet.map((row,r)=><div key={r} className="grid" style={{gridTemplateColumns:`repeat(${gridCols},1fr)`}}>{row.map((x,c)=>{
                   const active=selection.r===r&&selection.c===c;
                   return <div key={c} onClick={()=>{setSelection({r,c});setFormula(x.value)}} className={`h-9 border-r border-b relative ${active?'ring-2 ring-inset ring-indigo-500 z-10':''}`} style={{background:x.background,color:x.color,fontWeight:x.bold?700:400,fontStyle:x.italic?'italic':'normal',textDecoration:x.underline?'underline':'none',textAlign:x.align||'left',fontSize:x.fontSize||12,verticalAlign:x.vertical||'middle'}}>
-                    <div contentEditable suppressContentEditableWarning onFocus={()=>{setSelection({r,c});setFormula(x.value)}} onInput={e=>{const val=e.currentTarget.textContent||'';setSheet(old=>old.map((rr,ri)=>rr.map((cc,ci)=>ri===r&&ci===c?{...cc,value:val}:cc)));setFormula(val)}} className="w-full h-full px-1.5 py-2 outline-none overflow-hidden whitespace-nowrap">{x.value}</div>
+                    {x.image ? <img src={x.image} alt="Uploaded" className="max-h-7 max-w-full object-contain" /> : null}<div contentEditable={mode==='edit'} suppressContentEditableWarning onFocus={()=>{setSelection({r,c});setFormula(x.value)}} onInput={e=>{const val=e.currentTarget.textContent||'';setSheet(old=>old.map((rr,ri)=>rr.map((cc,ci)=>ri===r&&ci===c?{...cc,value:val}:cc)));setFormula(val)}} className="w-full h-full px-1.5 py-2 outline-none overflow-hidden whitespace-nowrap">{x.value}</div>
                   </div>})}</div>)}
               </div>
             </div>
