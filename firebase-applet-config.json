@@ -1,11 +1,9 @@
 {
-  "projectId": "golden-quasar-zxjsq",
-  "appId": "1:871843298902:web:f2916374b99b5b3f8845f7",
-  "apiKey": "AIzaSyCOJy8K9fm9tq2NQUwo1OECaN-bbcc4yGw",
-  "authDomain": "golden-quasar-zxjsq.firebaseapp.com",
-  "storageBucket": "golden-quasar-zxjsq.firebasestorage.app",
-  "messagingSenderId": "871843298902",
-  "measurementId": "",
-  "oAuthClientId": "871843298902-mc2gbpalgklkcq8sse68oq5bio6pejor.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "apiKey": "AIzaSyBDs2bFm2YwESPUUL5OA51GzoNl2pY2_cM",
+  "authDomain": "invoices-ea3a6.firebaseapp.com",
+  "projectId": "invoices-ea3a6",
+  "storageBucket": "invoices-ea3a6.firebasestorage.app",
+  "messagingSenderId": "1049250266112",
+  "appId": "1:1049250266112:web:658b22408cdd384aa46ce5",
+  "measurementId": "G-BGK81QEK7B"
 }
